@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../services/sms_reader_service.dart';
 import '../models/financial_event.dart';
 import 'sms_detail_screen.dart';
+import 'demo_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -14,12 +15,10 @@ class _HomeScreenState extends State<HomeScreen> {
   final SmsReaderService _smsService = SmsReaderService();
 
   bool _isLoading = false;
-  bool _hasPermission = false;
   bool _hasScanned = false;
 
   List<FinancialEvent> _events = [];
   Map<String, dynamic> _summary = {};
-  String _statusMessage = 'Tap "Scan SMS" to begin';
 
   @override
   void initState() {
@@ -28,32 +27,32 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _checkPermission() async {
-    final hasPermission = await _smsService.hasSmsPermission();
-    setState(() {
-      _hasPermission = hasPermission;
-    });
+    await _smsService.hasSmsPermission();
   }
 
   Future<void> _scanSms() async {
     setState(() {
       _isLoading = true;
-      _statusMessage = 'Requesting SMS permission...';
     });
 
     final granted = await _smsService.requestSmsPermission();
     if (!granted) {
       setState(() {
         _isLoading = false;
-        _hasPermission = false;
-        _statusMessage = 'SMS permission denied.';
       });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'SMS permission is required to scan messages. Please grant permission in Settings.',
+            ),
+            backgroundColor: Colors.red,
+            duration: Duration(seconds: 3),
+          ),
+        );
+      }
       return;
     }
-
-    setState(() {
-      _hasPermission = true;
-      _statusMessage = 'Reading SMS messages...';
-    });
 
     try {
       final summary = await _smsService.getEventSummary(months: 6);
@@ -63,12 +62,10 @@ class _HomeScreenState extends State<HomeScreen> {
         _events = (summary['events'] as List<FinancialEvent>?) ?? [];
         _hasScanned = true;
         _isLoading = false;
-        _statusMessage = 'Found ${_events.length} financial SMS';
       });
     } catch (e) {
       setState(() {
         _isLoading = false;
-        _statusMessage = 'Error: $e';
       });
     }
   }
@@ -76,14 +73,17 @@ class _HomeScreenState extends State<HomeScreen> {
   Color _getEventColor(String eventType) {
     if (eventType.contains('CREDIT') ||
         eventType.contains('SALARY') ||
-        eventType.contains('PAID'))
+        eventType.contains('PAID')) {
       return Colors.green;
+    }
     if (eventType.contains('BOUNCED') ||
         eventType.contains('FAILED') ||
-        eventType.contains('LOW'))
+        eventType.contains('LOW')) {
       return Colors.red;
-    if (eventType.contains('DUE') || eventType.contains('FEE'))
+    }
+    if (eventType.contains('DUE') || eventType.contains('FEE')) {
       return Colors.orange;
+    }
     return Colors.blue;
   }
 
@@ -104,6 +104,14 @@ class _HomeScreenState extends State<HomeScreen> {
               icon: const Icon(Icons.refresh),
               onPressed: _isLoading ? null : _scanSms,
             ),
+          IconButton(
+            icon: const Icon(Icons.api),
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const DemoScreen()),
+            ),
+            tooltip: 'Demo API Route',
+          ),
         ],
       ),
       body: Column(
@@ -113,9 +121,11 @@ class _HomeScreenState extends State<HomeScreen> {
             margin: const EdgeInsets.all(16),
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: Colors.teal.withOpacity(0.15),
+              color: Colors.teal.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.tealAccent.withOpacity(0.3)),
+              border: Border.all(
+                color: Colors.tealAccent.withValues(alpha: 0.3),
+              ),
             ),
             child: const Row(
               children: [
@@ -138,9 +148,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: ElevatedButton.icon(
                   onPressed: _isLoading ? null : _scanSms,
                   icon: const Icon(Icons.search),
-                  label: Text(
-                    _isLoading ? 'Scanning...' : 'Scan SMS (Last 6 Months)',
-                  ),
+                  label: const Text('Scan SMS (Last 6 Months)'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.tealAccent,
                     foregroundColor: Colors.black,
@@ -263,9 +271,9 @@ class _HomeScreenState extends State<HomeScreen> {
       margin: const EdgeInsets.only(right: 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withOpacity(0.3)),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
